@@ -1,0 +1,79 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+  <meta charset="UTF-8">
+  <title>Terminal Chat</title>
+  <style>
+    body { background: #0d0d0d; color: #3352ff; font-family: monospace; margin: 0; padding: 20px; display: flex; flex-direction: column; height: 90vh; }
+    #chat { flex: 1; overflow-y: auto; border: 1px solid #3352ff
+    ; padding: 10px; margin-bottom: 10px; }
+    .msg { margin-bottom: 5px; word-wrap: break-word; }
+    form { display: flex; gap: 10px; }
+    input { background: #000; color: #3352ff
+    ; border: 1px solid #3352ff
+    ; padding: 8px; font-family: monospace; outline: none; }
+    #user { width: 120px; }
+    #text { flex: 1; }
+    button { background: #3352ff
+    ; color: #000; border: none; padding: 8px 15px; font-family: monospace; font-weight: bold; cursor: pointer; }
+  </style>
+</head>
+<body>
+
+  <div id="chat">Подключение к локальному серверу...</div>
+
+  <form id="form">
+    <input id="user" placeholder="Ник" value="Anon" required>
+    <input id="text" placeholder="Введите сообщение..." autocomplete="off" required>
+    <button type="submit">SEND</button>
+  </form>
+
+  <script>
+    const chatBox = document.getElementById("chat");
+    const form = document.getElementById("form");
+    let lastState = "";
+
+    function render(messages) {
+      const currentState = JSON.stringify(messages);
+      if (currentState === lastState) return;
+      lastState = currentState;
+
+      chatBox.innerHTML = "";
+      messages.forEach(m => {
+        const div = document.createElement("div");
+        div.className = "msg";
+        div.textContent = `[${m.time}] <${m.user}>: ${m.text}`;
+        chatBox.appendChild(div);
+      });
+      chatBox.scrollTop = chatBox.scrollHeight;
+    }
+
+    async function fetchMessages() {
+      try {
+        const res = await fetch("/api");
+        render(await res.json());
+      } catch (e) {
+        console.error("Ошибка связи:", e);
+      }
+    }
+
+    form.addEventListener("submit", async (e) => {
+      e.preventDefault();
+      const user = document.getElementById("user").value;
+      const textInput = document.getElementById("text");
+      const text = textInput.value;
+      textInput.value = "";
+
+      const res = await fetch("/api", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ user, text })
+      });
+      render(await res.json());
+    });
+
+    fetchMessages();
+    setInterval(fetchMessages, 1500);
+  </script>
+</body>
+</html>
