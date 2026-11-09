@@ -15,8 +15,7 @@
         input { background: #2a2a2a; border: 1px solid #444; color: #fff; padding: 10px; border-radius: 6px; outline: none; }
         #userInput { width: 100px; }
         #textInput { flex: 1; }
-        button { background: #4c57af
-        ; color: #fff; border: none; padding: 10px 16px; border-radius: 6px; cursor: pointer; font-weight: bold; }
+        button { background: #4c57af; color: #fff; border: none; padding: 10px 16px; border-radius: 6px; cursor: pointer; font-weight: bold; }
         button:hover { background: #457aa0; }
     </style>
 </head>
@@ -35,14 +34,12 @@
     import { initializeApp } from "https://gstatic.com";
     import { getDatabase, ref, push, query, limitToLast, onValue } from "https://gstatic.com";
 
-    // ВСТАВЬТЕ СЮДА ССЫЛКУ НА ВАШУ БАЗУ FIREBASE ИЗ ШАГА 1
     const firebaseConfig = {
         databaseURL: "https://chatks-15b32-default-rtdb.europe-west1.firebasedatabase.app/"
     };
 
     const app = initializeApp(firebaseConfig);
     const db = getDatabase(app);
-    // Аналог del messages[:-30] — берем только последние 30 сообщений
     const messagesRef = query(ref(db, 'messages'), limitToLast(30));
 
     const messagesDiv = document.getElementById('messages');
@@ -50,7 +47,7 @@
     const textInput = document.getElementById('textInput');
     const sendBtn = document.getElementById('sendBtn');
 
-    // Получаем сообщения в реальном времени (вместо GET /api)
+    // Получаем сообщения в реальном времени
     onValue(messagesRef, (snapshot) => {
         messagesDiv.innerHTML = '';
         const data = snapshot.val();
@@ -64,7 +61,6 @@
             const div = document.createElement('div');
             div.className = 'msg';
             
-            // Защита от HTML-инъекций при выводе текста
             const header = document.createElement('div');
             header.className = 'msg-header';
             
@@ -87,9 +83,11 @@
         });
         
         messagesDiv.scrollTop = messagesDiv.scrollHeight;
+    }, (error) => {
+        messagesDiv.innerHTML = '<div style="color:#ff5555; text-align:center;">Ошибка подключения к базе: ' + error.message + '</div>';
     });
 
-    // Отправка сообщения (вместо POST /api)
+    // Отправка сообщения
     function sendMessage() {
         const user = (userInput.value.trim() || 'Anon').slice(0, 15);
         const text = textInput.value.trim().slice(0, 200);
@@ -97,7 +95,7 @@
         if (!text) return;
 
         const now = new Date();
-        const time = now.toTimeString().slice(0, 5); // Формат ЧЧ:ММ
+        const time = now.toTimeString().slice(0, 5);
 
         push(ref(db, 'messages'), {
             user: user,
