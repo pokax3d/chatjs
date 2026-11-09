@@ -1,79 +1,118 @@
 <!DOCTYPE html>
 <html lang="ru">
 <head>
-  <meta charset="UTF-8">
-  <title>Terminal Chat</title>
-  <style>
-    body { background: #0d0d0d; color: #3352ff; font-family: monospace; margin: 0; padding: 20px; display: flex; flex-direction: column; height: 90vh; }
-    #chat { flex: 1; overflow-y: auto; border: 1px solid #3352ff
-    ; padding: 10px; margin-bottom: 10px; }
-    .msg { margin-bottom: 5px; word-wrap: break-word; }
-    form { display: flex; gap: 10px; }
-    input { background: #000; color: #3352ff
-    ; border: 1px solid #3352ff
-    ; padding: 8px; font-family: monospace; outline: none; }
-    #user { width: 120px; }
-    #text { flex: 1; }
-    button { background: #3352ff
-    ; color: #000; border: none; padding: 8px 15px; font-family: monospace; font-weight: bold; cursor: pointer; }
-  </style>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Онлайн Чат</title>
+    <style>
+        body { font-family: sans-serif; background: #121212; color: #fff; display: flex; justify-content: center; margin: 0; padding: 20px; }
+        .chat-box { width: 100%; max-width: 500px; background: #1e1e1e; border-radius: 10px; padding: 15px; display: flex; flex-direction: column; height: 85vh; }
+        #messages { flex: 1; overflow-y: auto; border-bottom: 1px solid #333; padding-bottom: 10px; margin-bottom: 10px; display: flex; flex-direction: column; gap: 8px; }
+        .msg { background: #2a2a2a; padding: 8px 12px; border-radius: 8px; word-wrap: break-word; }
+        .msg-header { font-size: 12px; color: #aaa; margin-bottom: 4px; display: flex; justify-content: space-between; }
+        .msg-user { color: #4c57af; font-weight: bold; }
+        .controls { display: flex; gap: 8px; }
+        input { background: #2a2a2a; border: 1px solid #444; color: #fff; padding: 10px; border-radius: 6px; outline: none; }
+        #userInput { width: 100px; }
+        #textInput { flex: 1; }
+        button { background: #4c57af
+        ; color: #fff; border: none; padding: 10px 16px; border-radius: 6px; cursor: pointer; font-weight: bold; }
+        button:hover { background: #457aa0; }
+    </style>
 </head>
 <body>
 
-  <div id="chat">Подключение к локальному серверу...</div>
+<div class="chat-box">
+    <div id="messages">Загрузка сообщений...</div>
+    <div class="controls">
+        <input type="text" id="userInput" placeholder="Имя" maxlength="15">
+        <input type="text" id="textInput" placeholder="Сообщение..." maxlength="200">
+        <button id="sendBtn">Отправить</button>
+    </div>
+</div>
 
-  <form id="form">
-    <input id="user" placeholder="Ник" value="Anon" required>
-    <input id="text" placeholder="Введите сообщение..." autocomplete="off" required>
-    <button type="submit">SEND</button>
-  </form>
+<script type="module">
+    import { initializeApp } from "https://gstatic.com";
+    import { getDatabase, ref, push, query, limitToLast, onValue } from "https://gstatic.com";
 
-  <script>
-    const chatBox = document.getElementById("chat");
-    const form = document.getElementById("form");
-    let lastState = "";
+    // ВСТАВЬТЕ СЮДА ССЫЛКУ НА ВАШУ БАЗУ FIREBASE ИЗ ШАГА 1
+    const firebaseConfig = {
+        databaseURL: "https://chatks-15b32-default-rtdb.europe-west1.firebasedatabase.app/"
+    };
 
-    function render(messages) {
-      const currentState = JSON.stringify(messages);
-      if (currentState === lastState) return;
-      lastState = currentState;
+    const app = initializeApp(firebaseConfig);
+    const db = getDatabase(app);
+    // Аналог del messages[:-30] — берем только последние 30 сообщений
+    const messagesRef = query(ref(db, 'messages'), limitToLast(30));
 
-      chatBox.innerHTML = "";
-      messages.forEach(m => {
-        const div = document.createElement("div");
-        div.className = "msg";
-        div.textContent = `[${m.time}] <${m.user}>: ${m.text}`;
-        chatBox.appendChild(div);
-      });
-      chatBox.scrollTop = chatBox.scrollHeight;
-    }
+    const messagesDiv = document.getElementById('messages');
+    const userInput = document.getElementById('userInput');
+    const textInput = document.getElementById('textInput');
+    const sendBtn = document.getElementById('sendBtn');
 
-    async function fetchMessages() {
-      try {
-        const res = await fetch("/api");
-        render(await res.json());
-      } catch (e) {
-        console.error("Ошибка связи:", e);
-      }
-    }
+    // Получаем сообщения в реальном времени (вместо GET /api)
+    onValue(messagesRef, (snapshot) => {
+        messagesDiv.innerHTML = '';
+        const data = snapshot.val();
+        
+        if (!data) {
+            messagesDiv.innerHTML = '<div style="color:#777; text-align:center;">Сообщений пока нет</div>';
+            return;
+        }
 
-    form.addEventListener("submit", async (e) => {
-      e.preventDefault();
-      const user = document.getElementById("user").value;
-      const textInput = document.getElementById("text");
-      const text = textInput.value;
-      textInput.value = "";
-
-      const res = await fetch("/api", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ user, text })
-      });
-      render(await res.json());
+        Object.values(data).forEach(msg => {
+            const div = document.createElement('div');
+            div.className = 'msg';
+            
+            // Защита от HTML-инъекций при выводе текста
+            const header = document.createElement('div');
+            header.className = 'msg-header';
+            
+            const userSpan = document.createElement('span');
+            userSpan.className = 'msg-user';
+            userSpan.textContent = msg.user;
+            
+            const timeSpan = document.createElement('span');
+            timeSpan.textContent = msg.time;
+            
+            header.appendChild(userSpan);
+            header.appendChild(timeSpan);
+            
+            const textDiv = document.createElement('div');
+            textDiv.textContent = msg.text;
+            
+            div.appendChild(header);
+            div.appendChild(textDiv);
+            messagesDiv.appendChild(div);
+        });
+        
+        messagesDiv.scrollTop = messagesDiv.scrollHeight;
     });
 
-    fetchMessages();
-    setInterval(fetchMessages, 1500);
-  </script>
+    // Отправка сообщения (вместо POST /api)
+    function sendMessage() {
+        const user = (userInput.value.trim() || 'Anon').slice(0, 15);
+        const text = textInput.value.trim().slice(0, 200);
+        
+        if (!text) return;
+
+        const now = new Date();
+        const time = now.toTimeString().slice(0, 5); // Формат ЧЧ:ММ
+
+        push(ref(db, 'messages'), {
+            user: user,
+            text: text,
+            time: time
+        });
+
+        textInput.value = '';
+    }
+
+    sendBtn.addEventListener('click', sendMessage);
+    textInput.addEventListener('keypress', (e) => {
+        if (e.key === 'Enter') sendMessage();
+    });
+</script>
+
 </body>
 </html>
